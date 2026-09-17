@@ -1406,6 +1406,43 @@ class TestMCJit(BaseTest, JITWithTMTestMixin):
             target_machine = self.target_machine(jit=True)
         return llvm.create_mcjit_compiler(mod, target_machine)
 
+    def test_mapped_memory_statistics_follow_both_manager_lifetimes(self):
+        for use_lmm in (False, True):
+            with self.subTest(use_lmm=use_lmm):
+                ee = llvm.create_mcjit_compiler(
+                    self.module(), self.target_machine(jit=True), use_lmm=use_lmm)
+                self.assertEqual(ee.memory_statistics,
+                                 {'mapped_bytes': 0, 'peak_mapped_bytes': 0})
+                function = self.get_sum(ee)
+                self.assertEqual(function(2, 4), 6)
+                stats = ee.memory_statistics
+                self.assertGreater(stats['mapped_bytes'], 0)
+                self.assertEqual(stats['mapped_bytes'], stats['peak_mapped_bytes'])
+                for _ in range(16):
+                    self.assertEqual(function(3, 5), 8)
+                self.assertEqual(ee.memory_statistics, stats)
+                del function
+                ee.close()
+                self.assertEqual(ee.memory_statistics['mapped_bytes'], 0)
+                self.assertEqual(ee.memory_statistics['peak_mapped_bytes'],
+                                 stats['peak_mapped_bytes'])
+                ee.close()
+                self.assertEqual(ee.memory_statistics['mapped_bytes'], 0)
+
+    def test_memory_statistics_are_per_engine_and_survive_gc(self):
+        first = self.jit(self.module())
+        second = self.jit(self.module())
+        self.assertEqual(self.get_sum(first)(1, 2), 3)
+        self.assertEqual(self.get_sum(second)(3, 4), 7)
+        second_stats = second.memory_statistics
+        first_counters = first._memory_stats
+        del first
+        gc.collect()
+        self.assertEqual(first_counters.mapped_bytes, 0)
+        self.assertEqual(second.memory_statistics, second_stats)
+        second.close()
+        self.assertEqual(second.memory_statistics['mapped_bytes'], 0)
+
 
 # There are some memory corruption issues with OrcJIT on AArch64 - see Issue
 # #1000. Since OrcJIT is experimental, and we don't test regularly during
