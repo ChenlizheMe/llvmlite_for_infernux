@@ -217,11 +217,17 @@ setup(name='llvmlite',
       # Include the separately-compiled shared library
       url="http://llvmlite.readthedocs.io",
       project_urls={
-          "Source": "https://github.com/numba/llvmlite",
+          "Source": "https://github.com/ChenlizheMe/llvmlite_for_infernux",
+          "Upstream": "https://github.com/numba/llvmlite",
       },
       packages=packages,
-      license_expression="BSD-2-Clause AND Apache-2.0 WITH LLVM-exception",
-      license_files=['LICENSE', 'LICENSE.thirdparty'],
+      license_expression=(
+          "BSD-2-Clause AND (Apache-2.0 WITH LLVM-exception) AND Zlib AND BSD-3-Clause"
+          + (" AND LicenseRef-Microsoft-Visual-C-Runtime" if sys.platform == 'win32' else "")
+      ),
+      license_files=['LICENSE', 'LICENSE.thirdparty', 'LICENSE.zlib',
+                     'LICENSE.zstd', 'NOTICE.runtime']
+                    + (['LICENSE.windows-runtime'] if sys.platform == 'win32' else []),
       cmdclass=cmdclass,
       long_description=long_description,
       python_requires=">={}".format(_version_info_str(min_python_version)),

@@ -24,6 +24,12 @@ retain the ``llvmlite`` distribution name; they are not published into the
 upstream project's PyPI namespace. Engine dependency/channel integration and
 non-Windows validation remain separate release gates.
 
+Release wheels also carry ``NOTICE.runtime`` and the licenses of the native
+compression libraries included by wheel repair. Windows wheels include the
+Microsoft runtime license separately; it is not covered by the fork's BSD
+license. Keep this inventory aligned with the actual repaired wheel when
+updating the LLVM toolchain.
+
 Windows packaging reads UTF-8 metadata explicitly. DLL load diagnostics keep
 the UTF-8 filename separate from LLVM 22's ANSI system-error suffix, so localized
 Windows installations report the original load failure without a decoding error.

@@ -1,0 +1,35 @@
+Infernux CPU JIT dependency distribution
+======================================
+
+This fork retains the llvmlite BSD-2-Clause license (LICENSE) and LLVM's
+Apache-2.0 license with LLVM exception (LICENSE.thirdparty).
+
+The Infernux wheel build repairs native shared-library dependencies. The
+Windows LLVM 22.1.2 build currently includes:
+
+  zlib 1.3.2 (zlib.dll): Jean-loup Gailly and Mark Adler; LICENSE.zlib.
+  Zstandard 1.5.7 (zstd.dll): Meta Platforms, Inc. and affiliates;
+    LICENSE.zstd (BSD-3-Clause option).
+  Microsoft Visual C++ runtime (msvcp140.dll): Microsoft Corporation;
+    LICENSE.windows-runtime. The validated Windows build uses 14.51.36247.
+
+Repair tools may add a name suffix to private DLLs. That does not change
+their authorship or license. These notices do not relicense any dependency
+or grant additional redistribution rights. The Microsoft runtime is not
+covered by the open-source licenses above. Redistribution is subject to the
+applicable Visual Studio license and Microsoft's distributable-code list:
+
+https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
+https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution
+
+The supplied runtime license text is the convenience transcription included
+with the runtime package; its own preamble describes its status. Windows
+wheels include it; other platform wheels do not contain the Windows runtime.
+Native dependency versions and licenses must be reviewed when changing the
+build toolchain. A repaired wheel, not the raw build, is the release input.
+
+Original projects:
+  https://github.com/numba/llvmlite
+  https://github.com/llvm/llvm-project
+  https://zlib.net/
+  https://facebook.github.io/zstd/

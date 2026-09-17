@@ -507,7 +507,9 @@ def git_parse_vcs_describe(git_describe, tag_prefix, verbose=False):
     # can always test version.endswith(".dirty").
     version = tag
     if distance or dirty:
-        version += "+%%d.g%%s" %% (distance, commit) + dirty_suffix
+        # Infernux tags already contain a PEP 440 local-version segment.
+        separator = "." if "+" in version else "+"
+        version += separator + "%%d.g%%s" %% (distance, commit) + dirty_suffix
 
     return version, dirty
 
@@ -679,7 +681,9 @@ def git_parse_vcs_describe(git_describe, tag_prefix, verbose=False):
     # can always test version.endswith(".dirty").
     version = tag
     if distance or dirty:
-        version += "+%d.g%s" % (distance, commit) + dirty_suffix
+        # Infernux tags already contain a PEP 440 local-version segment.
+        separator = "." if "+" in version else "+"
+        version += separator + "%d.g%s" % (distance, commit) + dirty_suffix
 
     return version, dirty
 
