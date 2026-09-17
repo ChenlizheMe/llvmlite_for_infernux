@@ -13,6 +13,11 @@ copyright notices and license remain in place; upstream documentation follows.
 The changes here repair native optimization-pass disposal and release the
 instrumentation callbacks owned by each PassBuilder. Regression tests check
 that closing a pass manager invokes its native destructor exactly once.
+MCJIT engines also expose ``memory_statistics``: current and peak mapped bytes
+for code/data pages, including allocator padding. Both existing memory-manager
+choices retain their allocation behavior; the counters follow the engine's
+lifetime without a process-global tracking table. These are not total RSS or
+compiler IR measurements. The original C creation entry point is retained.
 These fixes do not by themselves implement an executable-code memory budget.
 Infernux's dispatcher retirement work is separate. The fork is not yet the
 dependency installed by the public Infernux wheel.
@@ -20,6 +25,8 @@ dependency installed by the public Infernux wheel.
 这是 `Infernux 游戏引擎 <https://github.com/ChenlizheMe/Infernux>`_ 为 CPU JIT
 维护的 llvmlite 分支，不是插件，也不参与 Taichi 的 Vulkan 编译路径。
 当前修改针对 LLVM 优化资源的释放问题，保留上游 API、版权与许可证。
+MCJIT 新增实际代码/数据映射页的当前与峰值字节统计，包含分配器对齐开销；
+沿用现有两种内存管理器，不另建全局对象表。统计不等于进程总内存或编译器 IR 占用。
 这些修复不等于完整的机器码内存管理已经完成；公开的引擎 wheel 暂未切换到此分支。
 
 Upstream: `numba/llvmlite <https://github.com/numba/llvmlite>`_.

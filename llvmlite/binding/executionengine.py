@@ -10,6 +10,10 @@ from llvmlite.binding import ffi, targets, object_file
 ffi.lib.LLVMPY_LinkInMCJIT
 
 
+class _JITMemoryStats(Structure):
+    _fields_ = [('mapped_bytes', c_uint64), ('peak_mapped_bytes', c_uint64)]
+
+
 def create_mcjit_compiler(module, target_machine, use_lmm=None):
     """
     Create a MCJIT ExecutionEngine from the given *module* and
@@ -22,14 +26,15 @@ def create_mcjit_compiler(module, target_machine, use_lmm=None):
     if use_lmm is None:
         use_lmm = platform.machine().lower() in ('arm64', 'aarch64')
 
+    memory_stats = _JITMemoryStats()
     with ffi.OutputString() as outerr:
-        engine = ffi.lib.LLVMPY_CreateMCJITCompiler(
-            module, target_machine, use_lmm, outerr)
+        engine = ffi.lib.LLVMPY_CreateMCJITCompilerWithMemoryStats(
+            module, target_machine, use_lmm, memory_stats, outerr)
         if not engine:
             raise RuntimeError(str(outerr))
 
     target_machine._owned = True
-    return ExecutionEngine(engine, module=module)
+    return ExecutionEngine(engine, module=module, memory_stats=memory_stats)
 
 
 def check_jit_execution():
@@ -53,14 +58,28 @@ class ExecutionEngine(ffi.ObjectRef):
     """
     _object_cache = None
 
-    def __init__(self, ptr, module):
+    def __init__(self, ptr, module, memory_stats=None):
         """
         Module ownership is transferred to the EE
         """
         self._modules = set([module])
         self._td = None
+        self._memory_stats = memory_stats
         module._owned = True
         ffi.ObjectRef.__init__(self, ptr)
+
+    @property
+    def memory_statistics(self):
+        """Mapped JIT code/data bytes including allocator padding, not IR/RSS.
+
+        The retained counters remain readable after close, which releases
+        mapped memory. Read under the same FFI lock used for compilation.
+        """
+        if self._memory_stats is None:
+            raise RuntimeError("Memory statistics unavailable for externally created engine")
+        result = _JITMemoryStats()
+        ffi.lib.LLVMPY_GetJITMemoryStats(self._memory_stats, result)
+        return {name: getattr(result, name) for name, _ in result._fields_}
 
     def get_function_address(self, name):
         """
@@ -250,6 +269,16 @@ ffi.lib.LLVMPY_CreateMCJITCompiler.argtypes = [
     POINTER(c_char_p),
 ]
 ffi.lib.LLVMPY_CreateMCJITCompiler.restype = ffi.LLVMExecutionEngineRef
+
+ffi.lib.LLVMPY_CreateMCJITCompilerWithMemoryStats.argtypes = [
+    ffi.LLVMModuleRef, ffi.LLVMTargetMachineRef, c_bool,
+    POINTER(_JITMemoryStats), POINTER(c_char_p),
+]
+ffi.lib.LLVMPY_CreateMCJITCompilerWithMemoryStats.restype = ffi.LLVMExecutionEngineRef
+ffi.lib.LLVMPY_GetJITMemoryStats.argtypes = [
+    POINTER(_JITMemoryStats), POINTER(_JITMemoryStats),
+]
+ffi.lib.LLVMPY_GetJITMemoryStats.restype = None
 
 ffi.lib.LLVMPY_RemoveModule.argtypes = [
     ffi.LLVMExecutionEngineRef,

@@ -7,13 +7,66 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
+#include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Object/Binary.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Memory.h"
 
 #include <cstdio>
+#include <algorithm>
 #include <memory>
+
+// Storage is owned by the Python ExecutionEngine and outlives its native
+// engine. Read through LLVMPY_GetJITMemoryStats under the normal FFI lock.
+struct JITMemoryStats {
+    uint64_t mapped_bytes = 0;
+    uint64_t peak_mapped_bytes = 0;
+};
+
+template <typename Manager>
+class TrackedMapper : public Manager::MemoryMapper {
+    JITMemoryStats &Stats;
+
+  public:
+    explicit TrackedMapper(JITMemoryStats &Stats) : Stats(Stats) {}
+
+    llvm::sys::MemoryBlock allocateMappedMemory(
+        typename Manager::AllocationPurpose, size_t Size,
+        const llvm::sys::MemoryBlock *NearBlock, unsigned Flags,
+        std::error_code &Error) override {
+        auto Block = llvm::sys::Memory::allocateMappedMemory(
+            Size, NearBlock, Flags, Error);
+        if (!Error) {
+            Stats.mapped_bytes += Block.allocatedSize();
+            Stats.peak_mapped_bytes =
+                std::max(Stats.peak_mapped_bytes, Stats.mapped_bytes);
+        }
+        return Block;
+    }
+
+    std::error_code protectMappedMemory(const llvm::sys::MemoryBlock &Block,
+                                       unsigned Flags) override {
+        return llvm::sys::Memory::protectMappedMemory(Block, Flags);
+    }
+
+    std::error_code releaseMappedMemory(llvm::sys::MemoryBlock &Block) override {
+        const auto Size = Block.allocatedSize();
+        auto Error = llvm::sys::Memory::releaseMappedMemory(Block);
+        if (!Error)
+            Stats.mapped_bytes -= Size;
+        return Error;
+    }
+};
+
+// Base order keeps the mapper alive while Manager's destructor frees pages.
+template <typename Manager>
+class TrackedMemoryManager final : private TrackedMapper<Manager>, public Manager {
+  public:
+    explicit TrackedMemoryManager(JITMemoryStats &Stats)
+        : TrackedMapper<Manager>(Stats),
+          Manager(static_cast<TrackedMapper<Manager> *>(this)) {}
+};
 
 namespace llvm {
 
@@ -67,7 +120,8 @@ LLVMPY_FinalizeObject(LLVMExecutionEngineRef EE) {
 static LLVMExecutionEngineRef create_execution_engine(LLVMModuleRef M,
                                                       LLVMTargetMachineRef TM,
                                                       bool use_lmm,
-                                                      const char **OutError) {
+                                                      const char **OutError,
+                                                      JITMemoryStats *Stats = nullptr) {
     LLVMExecutionEngineRef ee = nullptr;
 
     llvm::EngineBuilder eb(std::unique_ptr<llvm::Module>(llvm::unwrap(M)));
@@ -75,7 +129,14 @@ static LLVMExecutionEngineRef create_execution_engine(LLVMModuleRef M,
     eb.setErrorStr(&err);
     eb.setEngineKind(llvm::EngineKind::JIT);
 
-    if (use_lmm) {
+    if (Stats) {
+        if (use_lmm)
+            eb.setMCJITMemoryManager(std::make_unique<
+                TrackedMemoryManager<llvm::LlvmliteMemoryManager>>(*Stats));
+        else
+            eb.setMCJITMemoryManager(std::make_unique<
+                TrackedMemoryManager<llvm::SectionMemoryManager>>(*Stats));
+    } else if (use_lmm) {
         std::unique_ptr<llvm::RTDyldMemoryManager> mm =
             std::make_unique<llvm::LlvmliteMemoryManager>();
         eb.setMCJITMemoryManager(std::move(mm));
@@ -95,6 +156,18 @@ API_EXPORT(LLVMExecutionEngineRef)
 LLVMPY_CreateMCJITCompiler(LLVMModuleRef M, LLVMTargetMachineRef TM,
                            bool use_lmm, const char **OutError) {
     return create_execution_engine(M, TM, use_lmm, OutError);
+}
+
+API_EXPORT(LLVMExecutionEngineRef)
+LLVMPY_CreateMCJITCompilerWithMemoryStats(
+    LLVMModuleRef M, LLVMTargetMachineRef TM, bool use_lmm,
+    JITMemoryStats *Stats, const char **OutError) {
+    return create_execution_engine(M, TM, use_lmm, OutError, Stats);
+}
+
+API_EXPORT(void)
+LLVMPY_GetJITMemoryStats(const JITMemoryStats *Stats, JITMemoryStats *Result) {
+    *Result = *Stats;
 }
 
 API_EXPORT(uint64_t)
