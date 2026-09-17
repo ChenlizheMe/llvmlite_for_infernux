@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from contextlib import contextmanager
 from tempfile import mkstemp
 
@@ -2673,6 +2674,23 @@ class NewPassManagerMixin(object):
 
 
 class TestPassBuilder(BaseTest, NewPassManagerMixin):
+
+    def test_pass_managers_dispose_native_object_once(self):
+        for factory, dispose_name in (
+            (llvm.create_new_module_pass_manager,
+             "LLVMPY_DisposeNewModulePassManger"),
+            (llvm.create_new_function_pass_manager,
+             "LLVMPY_DisposeNewFunctionPassManger"),
+        ):
+            with self.subTest(dispose=dispose_name):
+                dispose = mock.Mock(wraps=getattr(ffi.lib, dispose_name))
+                with mock.patch.dict(ffi.lib._fntab, {dispose_name: dispose}):
+                    with factory() as manager:
+                        self.assertFalse(manager.closed)
+                    manager.close()
+                    del manager
+                    gc.collect()
+                    dispose.assert_called_once()
 
     def test_close(self):
         pb = self.pb()

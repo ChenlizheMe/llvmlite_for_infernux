@@ -366,6 +366,8 @@ class NewPassManager():
 
 class ModulePassManager(ffi.ObjectRef, NewPassManager):
 
+    _dispose = NewPassManager._dispose
+
     def __init__(self, ptr=None):
         if ptr is None:
             ptr = ffi.lib.LLVMPY_CreateNewModulePassManager()
@@ -456,6 +458,8 @@ class ModulePassManager(ffi.ObjectRef, NewPassManager):
 
 
 class FunctionPassManager(ffi.ObjectRef, NewPassManager):
+
+    _dispose = NewPassManager._dispose
 
     def __init__(self, ptr=None):
         if ptr is None:
