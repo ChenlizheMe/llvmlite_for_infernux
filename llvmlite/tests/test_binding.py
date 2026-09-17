@@ -2352,6 +2352,12 @@ class TestDylib(BaseTest):
         with self.assertRaises(RuntimeError):
             llvm.load_library_permanently("zzzasdkf;jasd;l")
 
+    def test_bad_library_preserves_unicode_filename(self):
+        filename = "llvmlite-missing-\u6d4b\u8bd5-\U0001f9ea.dll"
+        with self.assertRaises(RuntimeError) as raised:
+            llvm.load_library_permanently(filename)
+        self.assertIn(filename, str(raised.exception))
+
     @unittest.skipUnless(platform.system() in ["Linux"],
                          "test only works on Linux")
     def test_libm(self):

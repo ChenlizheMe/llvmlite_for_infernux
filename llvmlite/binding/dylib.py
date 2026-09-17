@@ -1,4 +1,5 @@
 from ctypes import c_void_p, c_char_p, c_bool, POINTER
+import sys
 
 from llvmlite.binding import ffi
 from llvmlite.binding.common import _encode_string
@@ -27,6 +28,12 @@ def load_library_permanently(filename):
     with ffi.OutputString() as outerr:
         if ffi.lib.LLVMPY_LoadLibraryPermanently(
                 _encode_string(filename), outerr):
+            if sys.platform == 'win32':
+                # LLVM 22's DLOpen prefixes the UTF-8 filename to MakeErrMsg's
+                # ASCII context + FormatMessageA text (Windows ANSI codepage).
+                # Do not decode the filename itself as ANSI or guess encodings.
+                suffix = outerr.bytes[len(_encode_string(filename)):]
+                raise RuntimeError(filename + suffix.decode('mbcs'))
             raise RuntimeError(str(outerr))
 
 # ============================================================================

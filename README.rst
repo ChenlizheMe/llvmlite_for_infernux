@@ -24,6 +24,10 @@ retain the ``llvmlite`` distribution name; they are not published into the
 upstream project's PyPI namespace. Engine dependency/channel integration and
 non-Windows validation remain separate release gates.
 
+Windows packaging reads UTF-8 metadata explicitly. DLL load diagnostics keep
+the UTF-8 filename separate from LLVM 22's ANSI system-error suffix, so localized
+Windows installations report the original load failure without a decoding error.
+
 The changes here repair native optimization-pass disposal and release the
 instrumentation callbacks owned by each PassBuilder. Regression tests check
 that closing a pass manager invokes its native destructor exactly once.
