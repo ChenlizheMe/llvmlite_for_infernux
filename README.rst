@@ -2,6 +2,28 @@
 llvmlite
 ========
 
+Infernux maintenance fork
+------------------------
+
+This is an upstream-derived dependency of the
+`Infernux game engine <https://github.com/ChenlizheMe/Infernux>`_'s CPU JIT work.
+It is not a Taichi backend or an Infernux plugin. The original llvmlite API,
+copyright notices and license remain in place; upstream documentation follows.
+
+The changes here repair native optimization-pass disposal and release the
+instrumentation callbacks owned by each PassBuilder. Regression tests check
+that closing a pass manager invokes its native destructor exactly once.
+These fixes do not by themselves implement an executable-code memory budget.
+Infernux's dispatcher retirement work is separate. The fork is not yet the
+dependency installed by the public Infernux wheel.
+
+这是 `Infernux 游戏引擎 <https://github.com/ChenlizheMe/Infernux>`_ 为 CPU JIT
+维护的 llvmlite 分支，不是插件，也不参与 Taichi 的 Vulkan 编译路径。
+当前修改针对 LLVM 优化资源的释放问题，保留上游 API、版权与许可证。
+这些修复不等于完整的机器码内存管理已经完成；公开的引擎 wheel 暂未切换到此分支。
+
+Upstream: `numba/llvmlite <https://github.com/numba/llvmlite>`_.
+
 .. image:: https://dev.azure.com/numba/numba/_apis/build/status/numba.llvmlite?branchName=main
    :target: https://dev.azure.com/numba/numba/_build/latest?definitionId=2&branchName=main
    :alt: Azure Pipelines

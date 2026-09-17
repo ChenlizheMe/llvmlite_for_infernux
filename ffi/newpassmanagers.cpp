@@ -546,7 +546,11 @@ LLVMPY_CreatePassBuilder(LLVMTargetMachineRef TMRef,
 
 API_EXPORT(void)
 LLVMPY_DisposePassBuilder(LLVMPassBuilderRef PBRef) {
-    delete llvm::unwrap(PBRef);
+    PassBuilder *PB = llvm::unwrap(PBRef);
+    PassInstrumentationCallbacks *PIC = PB->getPassInstrumentationCallbacks();
+    // CreatePassBuilder allocates PIC; LLVM only borrows it.
+    delete PB;
+    delete PIC;
 }
 
 API_EXPORT(LLVMModulePassManagerRef)
