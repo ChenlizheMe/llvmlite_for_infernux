@@ -10,6 +10,20 @@ This is an upstream-derived dependency of the
 It is not a Taichi backend or an Infernux plugin. The original llvmlite API,
 copyright notices and license remain in place; upstream documentation follows.
 
+The ``infernux-0.49`` branch is based on the upstream ``v0.49.0`` release,
+matching Numba 0.67's ``llvmlite>=0.49,<0.50`` requirement. Infernux builds use
+a local version suffix (``0.49.0+infernux.N``), not a renamed import package.
+The ``main`` branch contains the development-line patches and is not the
+release dependency. Neither branch is a substitute for the GPU compiler.
+
+Build wheels with the upstream ``python setup.py bdist_wheel`` command and
+LLVM 22's CMake package on ``CMAKE_PREFIX_PATH``. Run the binding tests and
+Infernux CPU JIT tests against the installed wheel before promotion. Do not
+copy an experimental DLL into an existing editor environment. These wheels
+retain the ``llvmlite`` distribution name; they are not published into the
+upstream project's PyPI namespace. Engine dependency/channel integration and
+non-Windows validation remain separate release gates.
+
 The changes here repair native optimization-pass disposal and release the
 instrumentation callbacks owned by each PassBuilder. Regression tests check
 that closing a pass manager invokes its native destructor exactly once.
